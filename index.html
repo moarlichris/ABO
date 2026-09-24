@@ -7,9 +7,11 @@
 <title>QR Abo Scanner</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
 https://unpkg.com/html5-qrcodescript>
 
 <style>
+
 body{
     font-family:Arial,sans-serif;
     max-width:800px;
@@ -42,11 +44,16 @@ button{
     font-weight:bold;
 }
 
+button:hover{
+    opacity:0.9;
+}
+
 .panel{
     display:none;
     background:white;
     padding:20px;
     border-radius:10px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
 }
 
 .panel.active{
@@ -64,6 +71,11 @@ input{
     display:flex;
     justify-content:center;
     margin-top:20px;
+}
+
+#reader{
+    width:100%;
+    min-height:300px;
 }
 
 .result{
@@ -90,7 +102,17 @@ input{
     margin-bottom:5px;
     border-radius:6px;
 }
+
+.expired-item{
+    border-left:5px solid #dc3545;
+}
+
+.valid-item{
+    border-left:5px solid #198754;
+}
+
 </style>
+
 </head>
 
 <body>
@@ -98,9 +120,9 @@ input{
 <h1>QR Abo Verwaltung</h1>
 
 <div class="tabs">
-    <button onclick="showPanel('create')">Erstellen</button>
-    <button onclick="showPanel('scan')">Scannen</button>
-    <button onclick="showPanel('history')">Liste</button>
+    <button type="button" onclick="showPanel('create')">Erstellen</button>
+    <button type="button" onclick="showPanel('scan')">Scannen</button>
+    <button type="button" onclick="showPanel('history')">Liste</button>
 </div>
 
 <div id="create" class="panel active">
@@ -110,7 +132,7 @@ input{
         type="text"
         placeholder="Abo Kennung eingeben">
 
-    <button onclick="generateQR()">
+    <button type="button" onclick="generateQR()">
         QR Code erstellen
     </button>
 
@@ -124,21 +146,30 @@ input{
 
     <div id="scanResult"></div>
 
-    <button onclick="restartScanner()" style="margin-top:15px">
+    <button
+        type="button"
+        onclick="restartScanner()"
+        style="margin-top:15px">
+
         Scanner neu starten
+
     </button>
 
 </div>
 
 <div id="history" class="panel">
 
+    <h3>Scan Historie</h3>
+
     <div id="historyList"></div>
 
     <button
+        type="button"
         onclick="clearAll()"
         style="background:#dc3545;margin-top:20px">
 
         Alle Daten löschen
+
     </button>
 
 </div>
@@ -146,6 +177,8 @@ input{
 <script>
 
 let scanner = null;
+
+/* Panel wechseln */
 
 function showPanel(id){
 
@@ -165,6 +198,8 @@ function showPanel(id){
         renderHistory();
     }
 }
+
+/* QR generieren */
 
 function generateQR(){
 
@@ -190,20 +225,23 @@ function generateQR(){
     );
 }
 
+/* Scanner starten */
+
 async function startScanner(){
 
     if(scanner){
         return;
     }
 
-    scanner = new Html5Qrcode("reader");
-
     try{
+
+        scanner = new Html5Qrcode("reader");
 
         const cameras =
             await Html5Qrcode.getCameras();
 
         if(cameras.length === 0){
+
             alert("Keine Kamera gefunden");
             return;
         }
@@ -217,15 +255,20 @@ async function startScanner(){
             onScanSuccess
         );
 
-    } catch(error){
+    }catch(error){
 
         console.error(error);
 
-        document.getElementById("scanResult")
-            .innerHTML =
-            "<div class='result expired'>Kamera konnte nicht gestartet werden.</div>";
+        document.getElementById("scanResult").innerHTML =
+        `
+        <div class="result expired">
+            Kamera konnte nicht gestartet werden.
+        </div>
+        `;
     }
 }
+
+/* Scanner stoppen */
 
 async function stopScanner(){
 
@@ -234,25 +277,36 @@ async function stopScanner(){
     }
 
     try{
-        await scanner.stop();
-    }catch(e){}
+
+        if(scanner.isScanning){
+            await scanner.stop();
+        }
+
+    }catch(e){
+        console.log(e);
+    }
 
     try{
         await scanner.clear();
-    }catch(e){}
+    }catch(e){
+        console.log(e);
+    }
 
     scanner = null;
 }
+
+/* Scanner neu starten */
 
 async function restartScanner(){
 
     await stopScanner();
 
-    document.getElementById("scanResult")
-        .innerHTML = "";
+    document.getElementById("scanResult").innerHTML = "";
 
     startScanner();
 }
+
+/* QR erkannt */
 
 function onScanSuccess(decodedText){
 
@@ -290,7 +344,7 @@ function onScanSuccess(decodedText){
         </div>
         `;
 
-    } else {
+    }else{
 
         result.innerHTML =
         `
@@ -301,19 +355,23 @@ function onScanSuccess(decodedText){
         </div>
         `;
     }
+
+    renderHistory();
 }
+
+/* Historie anzeigen */
 
 function renderHistory(){
 
     const history =
         document.getElementById("historyList");
 
+    history.innerHTML = "";
+
     let data =
         JSON.parse(
             localStorage.getItem("aboScans")
         ) || {};
-
-    history.innerHTML = "";
 
     const keys =
         Object.keys(data);
@@ -321,28 +379,46 @@ function renderHistory(){
     if(keys.length === 0){
 
         history.innerHTML =
-            "Keine Einträge vorhanden.";
+            "<p>Keine Einträge vorhanden.</p>";
 
         return;
     }
 
     keys.forEach(key => {
 
+        const count = data[key];
+
         const div =
             document.createElement("div");
 
         div.className =
-            "history-item";
+            count >= 10
+            ? "history-item expired-item"
+            : "history-item valid-item";
 
-        div.innerHTML =
-            key + " : " +
-            data[key] +
-            " / 10";
+        if(count >= 10){
+
+            div.innerHTML =
+                "❌ " + key +
+                " | " +
+                count +
+                " Scans | ABO ABGELAUFEN";
+
+        }else{
+
+            div.innerHTML =
+                "✅ " + key +
+                " | " +
+                count +
+                " / 10";
+        }
 
         history.appendChild(div);
 
     });
 }
+
+/* Daten löschen */
 
 function clearAll(){
 
@@ -351,8 +427,20 @@ function clearAll(){
         localStorage.removeItem("aboScans");
 
         renderHistory();
+
+        document.getElementById("scanResult").innerHTML = "";
+
+        alert("Daten gelöscht");
     }
 }
+
+/* Initial laden */
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    renderHistory();
+
+});
 
 </script>
 
