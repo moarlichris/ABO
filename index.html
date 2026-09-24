@@ -185,13 +185,13 @@
     </div>
 
     <script>
-        let html5QrcodeScanner = null;
+        var html5QrcodeScanner = null;
 
         function switchTab(panelId, btn) {
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
             document.getElementById(panelId).classList.add('active');
             
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
             btn.classList.add('active');
 
             if (panelId === 'scan-panel') {
@@ -201,16 +201,14 @@
             }
         }
 
-        // --- FUNKTION: QR CODE GENERIEREN ---
-        const qrContainer = document.getElementById("qrcode");
         function generateQRCode() {
-            const data = document.getElementById("qr-data").value.trim();
+            var data = document.getElementById("qr-data").value.trim();
             if (!data) {
                 alert("Bitte gib eine Kennung ein.");
                 return;
             }
-            qrContainer.innerHTML = "";
-            new QRCode(qrContainer, {
+            document.getElementById("qrcode").innerHTML = "";
+            new QRCode(document.getElementById("qrcode"), {
                 text: data,
                 width: 250,
                 height: 250,
@@ -218,7 +216,6 @@
             });
         }
 
-        // --- FUNKTION: QR CODE SCANNEN & TRACKEN ---
         function startScanner() {
             document.getElementById('scan-result-container').style.display = 'none';
             document.getElementById('reader').style.display = 'block';
@@ -237,8 +234,8 @@
             if (html5QrcodeScanner) {
                 if (html5QrcodeScanner.getState() === 2) {
                     html5QrcodeScanner.clear()
-                        .then(() => { html5QrcodeScanner = null; })
-                        .catch(err => console.warn("Scanner-Stopp abgefangen:", err));
+                        .then(function() { html5QrcodeScanner = null; })
+                        .catch(function(err) { console.warn(err); });
                 } else {
                     html5QrcodeScanner = null;
                 }
@@ -253,28 +250,28 @@
             stopScanner();
             document.getElementById('reader').style.display = 'none';
             
-            let scanData = JSON.parse(localStorage.getItem('qr_abo_scans')) || {};
+            var scanData = JSON.parse(localStorage.getItem('qr_abo_scans')) || {};
             
             if (!scanData[decodedText]) {
                 scanData[decodedText] = 0;
             }
             
-            const resultBox = document.getElementById('scan-result');
-            const container = document.getElementById('scan-result-container');
+            var resultBox = document.getElementById('scan-result');
+            var container = document.getElementById('scan-result-container');
             
             if (scanData[decodedText] >= 10) {
                 resultBox.className = "result-box status-expired";
-                resultBox.innerHTML = `🚨 ABO ABGELAUFEN!<br><small>Code: ${decodedText}</small><br>Bereits ${scanData[decodedText]} Mal genutzt.`;
+                resultBox.innerHTML = '🚨 ABO ABGELAUFEN!<br><small>Code: ' + decodedText + '</small><br>Bereits ' + scanData[decodedText] + ' Mal genutzt.';
             } else {
                 scanData[decodedText] += 1;
                 localStorage.setItem('qr_abo_scans', JSON.stringify(scanData));
                 
                 if (scanData[decodedText] === 10) {
                     resultBox.className = "result-box status-expired";
-                    resultBox.innerHTML = `🚨 ABO JETZT ABGELAUFEN!<br><small>Code: ${decodedText}</small><br>Das war der 10. Scan!`;
+                    resultBox.innerHTML = '🚨 ABO JETZT ABGELAUFEN!<br><small>Code: ' + decodedText + '</small><br>Das war der 10. Scan!';
                 } else {
                     resultBox.className = "result-box status-valid";
-                    resultBox.innerHTML = `✅ Scan erfolgreich!<br><small>Code: ${decodedText}</small><br>Scan-Anzahl: <strong>${scanData[decodedText]} / 10</strong>`;
+                    resultBox.innerHTML = '✅ Scan erfolgreich!<br><small>Code: ' + decodedText + '</small><br>Scan-Anzahl: <strong>' + scanData[decodedText] + ' / 10</strong>';
                 }
             }
             
@@ -284,28 +281,28 @@
 
         function onScanFailure(error) {}
 
-        // --- FUNKTION: LISTE ANZEIGEN ---
         function renderHistory() {
-            const listEl = document.getElementById('history-list');
+            var listEl = document.getElementById('history-list');
             listEl.innerHTML = "";
-const scanData = JSON.parse(localStorage.getItem('qr_abo_scans')) || {};
-const keys = Object.keys(scanData);
+            var scanData = JSON.parse(localStorage.getItem('qr_abo_scans')) || {};
+            
+            var keys = Object.keys(scanData);
 if (keys.length === 0) {
     listEl.innerHTML = "Noch keine Scans vorhanden.";
     return;
 }
 
-keys.forEach(key => {
-    const count = scanData[key];
-    const li = document.createElement('li');
+keys.forEach(function(key) {
+    var count = scanData[key];
+    var li = document.createElement('li');
     li.className = "history-item";
     
     if (count >= 10) {
         li.style.borderLeft = "5px solid var(--danger)";
-        li.innerHTML = `<span>❌ <s>${key}</s></span> <strong>${count} (Abgelaufen)</strong>`;
+        li.innerHTML = '❌ ' + key + ' ' + count + ' (Abgelaufen)';
     } else {
         li.style.borderLeft = "5px solid var(--primary)";
-        li.innerHTML = `<span>🔹 ${key}</span> <strong>${count} / 10</strong>`;
+        li.innerHTML = '🔹 ' + key + ' ' + count + ' / 10';
     }
     listEl.appendChild(li);
 });
