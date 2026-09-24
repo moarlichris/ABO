@@ -10,7 +10,7 @@
     
     <style>
         :root {
-            --primary: #28a745; /* Grün für Abo/Stempelkarten-Optik */
+            --primary: #28a745;
             --dark: #333;
             --light: #f8f9fa;
             --danger: #dc3545;
@@ -289,7 +289,6 @@
             const listEl = document.getElementById('history-list');
             listEl.innerHTML = "";
 const scanData = JSON.parse(localStorage.getItem('qr_abo_scans')) || {};
-
 const keys = Object.keys(scanData);
 if (keys.length === 0) {
     listEl.innerHTML = "Noch keine Scans vorhanden.";
@@ -302,12 +301,12 @@ keys.forEach(key => {
     li.className = "history-item";
     
     if (count >= 10) {
-    li.style.borderLeft = "5px solid var(--danger)";
-    li.innerHTML = `<span>❌ <s>${key}</s></span> <strong>${count} (Abgelaufen)</strong>`;
-} else {
-    li.style.borderLeft = "5px solid var(--primary)";
-    li.innerHTML = `<span>🔹 ${key}</span> <strong>${count} / 10</strong>`;
-}
+        li.style.borderLeft = "5px solid var(--danger)";
+        li.innerHTML = `<span>❌ <s>${key}</s></span> <strong>${count} (Abgelaufen)</strong>`;
+    } else {
+        li.style.borderLeft = "5px solid var(--primary)";
+        li.innerHTML = `<span>🔹 ${key}</span> <strong>${count} / 10</strong>`;
+    }
     listEl.appendChild(li);
 });
 }
