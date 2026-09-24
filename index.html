@@ -1,336 +1,360 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Abo Scanner</title>
-    <!-- Externe Bibliotheken für QR-Code Generierung und Scan -->
-    <script src="https://cloudflare.com"></script>
-    <script src="https://unpkg.com"></script>
-    
-    <style>
-        :root {
-            --primary: #28a745;
-            --dark: #333;
-            --light: #f8f9fa;
-            --danger: #dc3545;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: var(--light);
-            color: var(--dark);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        header {
-            background-color: var(--primary);
-            color: white;
-            width: 100%;
-            text-align: center;
-            padding: 15px 0;
-            font-size: 1.2rem;
-            font-weight: bold;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .container {
-            width: 100%;
-            max-width: 500px;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        .nav-tabs {
-            display: flex;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid var(--primary);
-        }
-        .tab-btn {
-            flex: 1;
-            padding: 12px;
-            background: white;
-            border: none;
-            color: var(--primary);
-            font-size: 1rem;
-            cursor: pointer;
-            transition: 0.3s;
-            font-weight: bold;
-        }
-        .tab-btn.active {
-            background-color: var(--primary);
-            color: white;
-        }
-        .panel {
-            display: none;
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        }
-        .panel.active {
-            display: block;
-        }
-        input, textarea, button {
-            width: 100%;
-            padding: 12px;
-            margin: 8px 0 15px 0;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            box-sizing: border-box;
-            font-size: 1rem;
-        }
-        button {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        button:active {
-            opacity: 0.9;
-        }
-        #qrcode {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-            padding: 10px;
-        }
-        #reader {
-            width: 100%;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .result-box {
-            padding: 15px;
-            border-radius: 8px;
-            word-break: break-all;
-            margin-top: 15px;
-            font-size: 1.1rem;
-            text-align: center;
-        }
-        .status-valid {
-            background: #d4edda;
-            color: #155724;
-            border: 2px solid #c3e6cb;
-        }
-        .status-expired {
-            background: #f8d7da;
-            color: #721c24;
-            border: 2px solid #f5c6cb;
-            font-weight: bold;
-            font-size: 1.4rem;
-            animation: blink 1s infinite alternate;
-        }
-        @keyframes blink {
-            from { opacity: 1; }
-            to { opacity: 0.7; }
-        }
-        .history-list {
-            margin-top: 20px;
-            padding: 0;
-            list-style: none;
-        }
-        .history-item {
-            background: #eee;
-            padding: 10px;
-            margin-bottom: 5px;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            display: flex;
-            justify-content: space-between;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>QR Abo Scanner</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+https://unpkg.com/html5-qrcodescript>
+
+<style>
+body{
+    font-family:Arial,sans-serif;
+    max-width:800px;
+    margin:auto;
+    padding:20px;
+    background:#f5f5f5;
+}
+
+h1{
+    text-align:center;
+}
+
+.tabs{
+    display:flex;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+.tabs button{
+    flex:1;
+}
+
+button{
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    background:#198754;
+    color:white;
+    cursor:pointer;
+    font-weight:bold;
+}
+
+.panel{
+    display:none;
+    background:white;
+    padding:20px;
+    border-radius:10px;
+}
+
+.panel.active{
+    display:block;
+}
+
+input{
+    width:100%;
+    padding:12px;
+    margin-bottom:10px;
+    box-sizing:border-box;
+}
+
+#qrcode{
+    display:flex;
+    justify-content:center;
+    margin-top:20px;
+}
+
+.result{
+    padding:15px;
+    border-radius:8px;
+    margin-top:15px;
+    text-align:center;
+}
+
+.valid{
+    background:#d4edda;
+    color:#155724;
+}
+
+.expired{
+    background:#f8d7da;
+    color:#721c24;
+    font-weight:bold;
+}
+
+.history-item{
+    background:#eee;
+    padding:10px;
+    margin-bottom:5px;
+    border-radius:6px;
+}
+</style>
 </head>
+
 <body>
 
-    <header>QR Abo-Verwaltung</header>
+<h1>QR Abo Verwaltung</h1>
 
-    <div class="container">
-        <!-- Navigation Buttons ohne inline onclick -->
-        <div class="nav-tabs">
-            <button id="btn-generate" class="tab-btn active">Erstellen</button>
-            <button id="btn-scan" class="tab-btn">Scannen</button>
-            <button id="btn-history" class="tab-btn">Liste</button>
-        </div>
+<div class="tabs">
+    <button onclick="showPanel('create')">Erstellen</button>
+    <button onclick="showPanel('scan')">Scannen</button>
+    <button onclick="showPanel('history')">Liste</button>
+</div>
 
-        <!-- PANEL: QR-CODE ERSTELLEN -->
-        <div id="generate-panel" class="panel active">
-            <label for="qr-data"><strong>Abo-Kennung / Text eingeben:</strong></label>
-            <input type="text" id="qr-data" placeholder="z.B. Kunde-12345 oder Kaffee-Abo">
-            <button id="btn-create-qr">QR-Code generieren</button>
-            
-            <div id="qrcode"></div>
-        </div>
+<div id="create" class="panel active">
 
-        <!-- PANEL: QR-CODE SCANNEN -->
-        <div id="scan-panel" class="panel">
-            <p><strong>Abo scannen:</strong></p>
-            <div id="reader"></div>
-            
-            <div id="scan-result-container" style="display: none;">
-                <div id="scan-result" class="result-box"></div>
-                <button id="btn-restart-scan" style="background-color: #6c757d; margin-top: 15px;">Nächster Scan</button>
-            </div>
-        </div>
+    <input
+        id="qrText"
+        type="text"
+        placeholder="Abo Kennung eingeben">
 
-        <!-- PANEL: HISTORIE -->
-        <div id="history-panel" class="panel">
-            <p><strong>Gespeicherte Abos & Scan-Anzahl:</strong></p>
-            <ul id="history-list" class="history-list"></ul>
-            <button id="btn-clear-data" style="background-color: var(--danger); margin-top: 20px;">Alle Daten zurücksetzen</button>
-        </div>
-    </div>
+    <button onclick="generateQR()">
+        QR Code erstellen
+    </button>
 
-    <script>
-        var html5QrcodeScanner = null;
+    <div id="qrcode"></div>
 
-        // Sicherer Tab-Wechsel
-        function switchTab(panelId, activeBtn) {
-            document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
-            document.getElementById(panelId).classList.add('active');
-            
-            document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
-            activeBtn.classList.add('active');
+</div>
 
-            if (panelId === 'scan-panel') {
-                startScanner();
-            } else {
-                stopScanner();
-            }
+<div id="scan" class="panel">
 
-            if (panelId === 'history-panel') {
-                renderHistory();
-            }
-        }
+    <div id="reader"></div>
 
-        // QR Code generieren
-        function generateQRCode() {
-            var data = document.getElementById("qr-data").value.trim();
-            if (!data) {
-                alert("Bitte gib eine Kennung ein.");
-                return;
-            }
-            document.getElementById("qrcode").innerHTML = "";
-            new QRCode(document.getElementById("qrcode"), {
-                text: data,
-                width: 250,
-                height: 250,
-                correctLevel : QRCode.CorrectLevel.H
-            });
-        }
+    <div id="scanResult"></div>
 
-        // Kamera-Scanner starten
-        function startScanner() {
-            document.getElementById('scan-result-container').style.display = 'none';
-            document.getElementById('reader').style.display = 'block';
-            
-            if (!html5QrcodeScanner) {
-                html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-                    fps: 10, 
-                    qrbox: { width: 250, height: 250 },
-                    rememberLastUsedCamera: true
-                });
-            }
-            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
-        }
+    <button onclick="restartScanner()" style="margin-top:15px">
+        Scanner neu starten
+    </button>
 
-        // Kamera-Scanner stoppen
-        function stopScanner() {
-            if (html5QrcodeScanner) {
-                if (html5QrcodeScanner.getState() === 2) {
-                    html5QrcodeScanner.clear()
-                        .then(function() { html5QrcodeScanner = null; })
-                        .catch(function(err) { console.warn(err); });
-                } else {
-                    html5QrcodeScanner = null;
-                }
-            }
-        }
+</div>
 
-        function onScanSuccess(decodedText) {
-            stopScanner();
-            document.getElementById('reader').style.display = 'none';
-            
-            var scanData = JSON.parse(localStorage.getItem('qr_abo_scans')) || {};
-            if (!scanData[decodedText]) {
-                scanData[decodedText] = 0;
-            }
-            
-            var resultBox = document.getElementById('scan-result');
-            var container = document.getElementById('scan-result-container');
-            
-            if (scanData[decodedText] >= 10) {
-                resultBox.className = "result-box status-expired";
-                resultBox.innerHTML = '🚨 ABO ABGELAUFEN!<br><small>Code: ' + decodedText + '</small><br>Bereits ' + scanData[decodedText] + ' Mal genutzt.';
-            } else {
-                scanData[decodedText] += 1;
-                localStorage.setItem('qr_abo_scans', JSON.stringify(scanData));
-                
-                if (scanData[decodedText] === 10) {
-                    resultBox.className = "result-box status-expired";
-                    resultBox.innerHTML = '🚨 ABO JETZT ABGELAUFEN!<br><small>Code: ' + decodedText + '</small><br>Das war der 10. Scan!';
-                } else {
-                    resultBox.className = "result-box status-valid";
-                    resultBox.innerHTML = '✅ Scan erfolgreich!<br><small>Code: ' + decodedText + '</small><br>Scan-Anzahl: <strong>' + scanData[decodedText] + ' / 10</strong>';
-                }
-            }
-            
-            if (navigator.vibrate) navigator.vibrate(100);
-            container.style.display = 'block';
-        }
+<div id="history" class="panel">
 
-        function onScanFailure(error) {}
+    <div id="historyList"></div>
 
-        // Liste rendern
-        function renderHistory() {
-            var listEl = document.getElementById('history-list');
-            listEl.innerHTML = "";
-            var scanData = JSON.parse(localStorage.getItem('qr_abo_scans')) || {};
-            
-var keys = Object.keys(scanData);
-if (keys.length === 0) {
-    listEl.innerHTML = "Noch keine Scans vorhanden.";
-    return;
-}
+    <button
+        onclick="clearAll()"
+        style="background:#dc3545;margin-top:20px">
 
-keys.forEach(function(key) {
-    var count = scanData[key];
-    var li = document.createElement('li');
-    li.className = "history-item";
-    
-    if (count >= 10) {
-        li.style.borderLeft = "5px solid var(--danger)";
-        li.innerHTML = '❌ ' + key + ' ' + count + ' (Abgelaufen)';
-    } else {
-        li.style.borderLeft = "5px solid var(--primary)";
-        li.innerHTML = '🔹 ' + key + ' ' + count + ' / 10';
+        Alle Daten löschen
+    </button>
+
+</div>
+
+<script>
+
+let scanner = null;
+
+function showPanel(id){
+
+    document.querySelectorAll(".panel")
+        .forEach(panel => panel.classList.remove("active"));
+
+    document.getElementById(id)
+        .classList.add("active");
+
+    if(id === "scan"){
+        startScanner();
+    }else{
+        stopScanner();
     }
-    listEl.appendChild(li);
-});
-}
 
-function clearStorage() {
-    if (confirm("Möchtest du wirklich alle gespeicherten Abo-Stände unwiderruflich löschen?")) {
-        localStorage.removeItem('qr_abo_scans');
+    if(id === "history"){
         renderHistory();
     }
 }
 
-// --- EVENT LISTENERS (Verbindet die Buttons sicher mit den Funktionen) ---
-document.addEventListener("DOMContentLoaded", function() {
-    // Navigation
-    document.getElementById("btn-generate").addEventListener("click", function() {
-        switchTab('generate-panel', this); });
-        document.getElementById("btn-scan").addEventListener("click", function() {
-        switchTab('scan-panel', this); });
-        document.getElementById("btn-history").addEventListener("click", function() {
-        switchTab('history-panel', this); });
-                
-// Aktionen
-document.getElementById("btn-create-qr").addEventListener("click", generateQRCode);
-document.getElementById("btn-restart-scan").addEventListener("click", startScanner);
-document.getElementById("btn-clear-data").addEventListener("click", clearStorage);
-});
+function generateQR(){
+
+    const text =
+        document.getElementById("qrText")
+        .value
+        .trim();
+
+    if(!text){
+        alert("Bitte Kennung eingeben");
+        return;
+    }
+
+    document.getElementById("qrcode").innerHTML = "";
+
+    new QRCode(
+        document.getElementById("qrcode"),
+        {
+            text:text,
+            width:250,
+            height:250
+        }
+    );
+}
+
+async function startScanner(){
+
+    if(scanner){
+        return;
+    }
+
+    scanner = new Html5Qrcode("reader");
+
+    try{
+
+        const cameras =
+            await Html5Qrcode.getCameras();
+
+        if(cameras.length === 0){
+            alert("Keine Kamera gefunden");
+            return;
+        }
+
+        await scanner.start(
+            cameras[0].id,
+            {
+                fps:10,
+                qrbox:250
+            },
+            onScanSuccess
+        );
+
+    } catch(error){
+
+        console.error(error);
+
+        document.getElementById("scanResult")
+            .innerHTML =
+            "<div class='result expired'>Kamera konnte nicht gestartet werden.</div>";
+    }
+}
+
+async function stopScanner(){
+
+    if(!scanner){
+        return;
+    }
+
+    try{
+        await scanner.stop();
+    }catch(e){}
+
+    try{
+        await scanner.clear();
+    }catch(e){}
+
+    scanner = null;
+}
+
+async function restartScanner(){
+
+    await stopScanner();
+
+    document.getElementById("scanResult")
+        .innerHTML = "";
+
+    startScanner();
+}
+
+function onScanSuccess(decodedText){
+
+    stopScanner();
+
+    let data =
+        JSON.parse(
+            localStorage.getItem("aboScans")
+        ) || {};
+
+    if(!data[decodedText]){
+        data[decodedText] = 0;
+    }
+
+    data[decodedText]++;
+
+    localStorage.setItem(
+        "aboScans",
+        JSON.stringify(data)
+    );
+
+    const count = data[decodedText];
+
+    const result =
+        document.getElementById("scanResult");
+
+    if(count >= 10){
+
+        result.innerHTML =
+        `
+        <div class="result expired">
+            🚨 ABO ABGELAUFEN<br><br>
+            ${decodedText}<br>
+            Nutzung: ${count}
+        </div>
+        `;
+
+    } else {
+
+        result.innerHTML =
+        `
+        <div class="result valid">
+            ✅ Scan erfolgreich<br><br>
+            ${decodedText}<br>
+            Nutzung: ${count} / 10
+        </div>
+        `;
+    }
+}
+
+function renderHistory(){
+
+    const history =
+        document.getElementById("historyList");
+
+    let data =
+        JSON.parse(
+            localStorage.getItem("aboScans")
+        ) || {};
+
+    history.innerHTML = "";
+
+    const keys =
+        Object.keys(data);
+
+    if(keys.length === 0){
+
+        history.innerHTML =
+            "Keine Einträge vorhanden.";
+
+        return;
+    }
+
+    keys.forEach(key => {
+
+        const div =
+            document.createElement("div");
+
+        div.className =
+            "history-item";
+
+        div.innerHTML =
+            key + " : " +
+            data[key] +
+            " / 10";
+
+        history.appendChild(div);
+
+    });
+}
+
+function clearAll(){
+
+    if(confirm("Alle Daten löschen?")){
+
+        localStorage.removeItem("aboScans");
+
+        renderHistory();
+    }
+}
+
+</script>
+
+</body>
+</html>
