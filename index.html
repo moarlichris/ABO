@@ -94,8 +94,8 @@ async function startScanner(){
     await waitForCameraRelease();
     const instance=new Html5Qrcode("reader");
     scanner=instance;
-    await instance.start(
-      {facingMode:{ideal:"environment"}},
+		await instance.start(
+		{ facingMode: "environment" },
       {fps:10,qrbox:{width:250,height:250},aspectRatio:1},
       onScanSuccess,
       ()=>{}
