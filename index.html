@@ -60,6 +60,53 @@
   </style>
 </head>
 <body>
+  <div id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <h1>QR Abo-Verwaltung</h1>
+    <h2>Anmeldung</h2>
+
+    <p class="hint">
+      Bitte mit Benutzername und Passwort anmelden.
+    </p>
+
+    <form id="loginForm" autocomplete="on">
+      <label for="loginUsername">
+        <strong>Benutzername</strong>
+      </label>
+
+      <input
+        id="loginUsername"
+        name="username"
+        type="text"
+        maxlength="50"
+        autocomplete="username"
+        autocapitalize="none"
+        spellcheck="false"
+        required
+      >
+
+      <label for="loginPassword">
+        <strong>Passwort</strong>
+      </label>
+
+      <input
+        id="loginPassword"
+        name="password"
+        type="password"
+        maxlength="100"
+        autocomplete="current-password"
+        required
+      >
+
+      <button type="submit">Anmelden</button>
+    </form>
+
+    <div id="loginMessage" aria-live="polite"></div>
+  </div>
+</div>
+
+<div id="protectedApp" hidden>
+  
   <h1>QR Abo-Verwaltung</h1>
 
   <div class="tabs">
@@ -94,6 +141,29 @@
 
   <script>
     "use strict";
+/*
+ * LOKALER ZUGRIFFSSCHUTZ
+ *
+ * ACHTUNG:
+ * Benutzernamen und Passwörter stehen in dieser HTML-Datei und können
+ * über den Quelltext eingesehen werden. Dies ist kein sicherer,
+ * serverseitiger Zugriffsschutz.
+ */
+const USERS = [
+  { username: "benutzer1", password: "Passwort1!" },
+  { username: "benutzer2", password: "Passwort2!" },
+  { username: "benutzer3", password: "Passwort3!" },
+  { username: "benutzer4", password: "Passwort4!" },
+  { username: "benutzer5", password: "Passwort5!" }
+];
+
+const LOGIN_SESSION_KEY = "aboScannerLoggedIn";
+const LOGIN_USER_KEY = "aboScannerCurrentUser";
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_BLOCK_TIME = 30000;
+
+let loginAttempts = 0;
+let loginBlockedUntil = 0;
 
     const STORAGE_KEY = "aboScans";
     const MAX_SCANS = 10;
