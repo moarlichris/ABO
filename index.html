@@ -31,7 +31,26 @@
     .valid { background:#d4edda; color:#155724; }
     .expired { background:#f8d7da; color:#721c24; font-weight:bold; }
     .info { background:#e7f1ff; color:#084298; }
-    .history-item { background:#eee; padding:10px; margin-bottom:7px; border-radius:6px; overflow-wrap:anywhere; }
+    .history-item {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      background:#eee;
+      padding:10px;
+      margin-bottom:7px;
+      border-radius:6px;
+      overflow-wrap:anywhere;
+    }
+
+    .history-item button {
+      flex-shrink:0;
+      margin-top:0;
+    }
+
+    .history-text {
+      flex:1;
+    }
     .expired-item { border-left:5px solid var(--red); }
     .valid-item { border-left:5px solid var(--green); }
     .hint { font-size:.9rem; color:#555; line-height:1.45; }
@@ -289,27 +308,80 @@
       renderHistory();
     }
 
-    function renderHistory() {
-      const history = byId("historyList");
-      history.replaceChildren();
-      const data = loadData();
-      const keys = Object.keys(data).sort((a, b) => a.localeCompare(b));
+function renderHistory() {
+  const history = byId("historyList");
+  history.replaceChildren();
 
-      if (keys.length === 0) {
-        const empty = document.createElement("p");
-        empty.textContent = "Keine Einträge vorhanden.";
-        history.appendChild(empty);
-        return;
+  const data = loadData();
+  const keys = Object.keys(data).sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+  if (keys.length === 0) {
+    const empty = document.createElement("p");
+    empty.textContent = "Keine Einträge vorhanden.";
+    history.appendChild(empty);
+    return;
+  }
+
+  keys.forEach((key) => {
+    const count = data[key];
+
+    const item = document.createElement("div");
+    item.className =
+      "history-item " +
+      (count >= MAX_SCANS
+        ? "expired-item"
+        : "valid-item");
+
+    const text = document.createElement("div");
+    text.className = "history-text";
+
+    text.textContent =
+      (count >= MAX_SCANS ? "❌ " : "✅ ") +
+      key +
+      " | " +
+      count +
+      " / " +
+      MAX_SCANS +
+      (count >= MAX_SCANS
+        ? " | ABO ABGELAUFEN"
+        : "");
+
+    const deleteBtn =
+      document.createElement("button");
+
+    deleteBtn.textContent = "🗑 Löschen";
+    deleteBtn.className = "danger";
+
+    deleteBtn.style.width = "auto";
+    deleteBtn.style.padding = "6px 12px";
+
+    deleteBtn.addEventListener(
+      "click",
+      () => deleteEntry(key)
+    );
+
+    item.appendChild(text);
+    item.appendChild(deleteBtn);
+
+    history.appendChild(item);
+  });
+}
+
+      function deleteEntry(key) {
+        if (!confirm(`Eintrag "${key}" löschen?`)) return;
+
+        const data = loadData();
+
+        delete data[key];
+
+        saveData(data);
+
+        byId("scanResult").replaceChildren();
+
+        renderHistory();
       }
-
-      keys.forEach((key) => {
-        const count = data[key];
-        const item = document.createElement("div");
-        item.className = "history-item " + (count >= MAX_SCANS ? "expired-item" : "valid-item");
-        item.textContent = (count >= MAX_SCANS ? "❌ " : "✅ ") + key + " | " + count + " / " + MAX_SCANS + (count >= MAX_SCANS ? " | ABO ABGELAUFEN" : "");
-        history.appendChild(item);
-      });
-    }
 
     async function clearAll() {
       if (!confirm("Alle gespeicherten Scan-Daten löschen?")) return;
