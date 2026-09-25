@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#198754">
   <title>QR Abo Scanner</title>
 
@@ -12,262 +12,160 @@
   <style>
     :root { --green:#198754; --red:#dc3545; --gray:#f5f5f5; --dark:#212529; }
     * { box-sizing:border-box; }
-    [hidden] { display:none !important; }
     body { font-family:Arial,sans-serif; max-width:800px; margin:auto; padding:20px; background:var(--gray); color:var(--dark); }
     h1 { text-align:center; }
     .tabs { display:flex; gap:10px; margin-bottom:20px; }
     .tabs button { flex:1; }
-    button { width:100%; padding:12px; border:0; border-radius:8px; background:var(--green); color:white; cursor:pointer; font-weight:bold; margin-top:10px; }
+    button { width:100%; padding:12px; border:0; border-radius:8px; background:var(--green); color:#fff; cursor:pointer; font-weight:bold; margin-top:10px; }
     button:hover { opacity:.9; }
     button:disabled { opacity:.55; cursor:not-allowed; }
     .secondary { background:#6c757d; }
     .danger { background:var(--red); }
-    .panel { display:none; background:white; padding:20px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.1); }
+    .panel { display:none; background:#fff; padding:20px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.1); }
     .panel.active { display:block; }
     input { width:100%; padding:12px; margin-bottom:10px; border:1px solid #bbb; border-radius:8px; }
     #qrcode { display:flex; justify-content:center; margin-top:20px; }
     #qrcode img, #qrcode canvas { max-width:100%; height:auto; }
-    #reader { width:100%; min-height:280px; }
+    #reader { width:100%; min-height:280px; overflow:hidden; border-radius:8px; }
+    #reader video { width:100% !important; height:auto !important; }
     .result { padding:15px; border-radius:8px; margin-top:15px; text-align:center; white-space:pre-wrap; overflow-wrap:anywhere; }
     .valid { background:#d4edda; color:#155724; }
     .expired { background:#f8d7da; color:#721c24; font-weight:bold; }
     .info { background:#e7f1ff; color:#084298; }
-    .history-item { display:flex; justify-content:space-between; align-items:center; gap:10px; background:#eee; padding:10px; margin-bottom:7px; border-radius:6px; overflow-wrap:anywhere; }
-    .history-item button { flex-shrink:0; margin-top:0; }
-    .history-text { flex:1; }
-    .expired-item { border-left:5px solid var(--red); }
-    .valid-item { border-left:5px solid var(--green); }
+    .status { padding:10px; margin-bottom:12px; border-radius:8px; background:#e7f1ff; color:#084298; }
     .hint { font-size:.9rem; color:#555; line-height:1.45; }
     .button-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .button-row button { margin-top:10px; }
-
-    .login-screen { position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; padding:20px; background:var(--gray); }
-    .login-box { width:100%; max-width:420px; padding:25px; background:white; border-radius:12px; box-shadow:0 4px 18px rgba(0,0,0,.18); }
-    .login-box h1 { margin-top:0; }
-    .login-box h2 { text-align:center; margin-bottom:20px; }
-    .login-error { padding:12px; margin-top:15px; border-radius:8px; background:#f8d7da; color:#721c24; text-align:center; font-weight:bold; overflow-wrap:anywhere; }
-    .login-success { padding:12px; margin-top:15px; border-radius:8px; background:#d4edda; color:#155724; text-align:center; font-weight:bold; }
-    .user-bar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 12px; margin-bottom:15px; background:white; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.08); }
-    .logout-button { width:auto; min-width:110px; margin-top:0; padding:8px 12px; }
-
+    .history-item { display:flex; justify-content:space-between; align-items:center; gap:10px; background:#eee; padding:10px; margin-bottom:7px; border-radius:6px; overflow-wrap:anywhere; }
+    .history-text { min-width:0; flex:1; }
+    .history-item button { width:auto; flex-shrink:0; margin:0; padding:7px 11px; }
+    .expired-item { border-left:5px solid var(--red); }
+    .valid-item { border-left:5px solid var(--green); }
     @media (max-width:520px) {
-      .tabs, .button-row { grid-template-columns:1fr; display:grid; }
-      .user-bar { align-items:stretch; flex-direction:column; }
-      .logout-button { width:100%; }
+      .tabs, .button-row { display:grid; grid-template-columns:1fr; }
       .history-item { align-items:stretch; flex-direction:column; }
-      .history-item button { width:100% !important; }
+      .history-item button { width:100%; }
     }
   </style>
 </head>
 <body>
-  <div id="loginScreen" class="login-screen">
-    <div class="login-box">
-      <h1>QR Abo-Verwaltung</h1>
-      <h2>Anmeldung</h2>
-      <p class="hint">Bitte mit Benutzername und Passwort anmelden.</p>
+  <h1>QR Abo-Verwaltung</h1>
+  <div id="cloudStatus" class="status" aria-live="polite">Zentrale Liste wird verbunden ...</div>
 
-      <form id="loginForm" autocomplete="on">
-        <label for="loginUsername"><strong>Benutzername</strong></label>
-        <input id="loginUsername" name="username" type="text" maxlength="50" autocomplete="username" autocapitalize="none" spellcheck="false" required>
-
-        <label for="loginPassword"><strong>Passwort</strong></label>
-        <input id="loginPassword" name="password" type="password" maxlength="100" autocomplete="current-password" required>
-
-        <button type="submit">Anmelden</button>
-      </form>
-      <div id="loginMessage" aria-live="polite"></div>
-    </div>
+  <div class="tabs">
+    <button type="button" data-panel="create">Erstellen</button>
+    <button type="button" data-panel="scan">Scannen</button>
+    <button type="button" data-panel="history">Liste</button>
   </div>
 
-  <div id="protectedApp" hidden>
-    <div class="user-bar">
-      <span>Angemeldet als: <strong id="currentUser">–</strong></span>
-      <button type="button" id="logoutBtn" class="secondary logout-button">Abmelden</button>
+  <section id="create" class="panel active">
+    <label for="qrText"><strong>Abo-Kennung</strong></label>
+    <input id="qrText" type="text" maxlength="120" placeholder="z. B. Kunde-12345" autocomplete="off">
+    <button type="button" id="createQrBtn">QR-Code erstellen</button>
+    <div id="qrcode" aria-live="polite"></div>
+    <div class="button-row">
+      <button type="button" id="downloadBtn" class="secondary" hidden>Als PNG speichern</button>
+      <button type="button" id="shareBtn" class="secondary" hidden>Bild versenden</button>
     </div>
+  </section>
 
-    <h1>QR Abo-Verwaltung</h1>
+  <section id="scan" class="panel">
+    <p class="hint">Die GitHub-Pages-Seite muss über HTTPS geöffnet sein. Beim ersten Start den Kamerazugriff erlauben.</p>
+    <div id="reader"></div>
+    <div id="scanResult" aria-live="polite"></div>
+    <button type="button" id="restartBtn" class="secondary">Scanner neu starten</button>
+  </section>
 
-    <div class="tabs">
-      <button type="button" data-panel="create">Erstellen</button>
-      <button type="button" data-panel="scan">Scannen</button>
-      <button type="button" data-panel="history">Liste</button>
-    </div>
-
-    <section id="create" class="panel active">
-      <label for="qrText"><strong>Abo-Kennung</strong></label>
-      <input id="qrText" type="text" maxlength="120" placeholder="z. B. Kunde-12345" autocomplete="off">
-      <button type="button" id="createQrBtn">QR-Code erstellen</button>
-      <div id="qrcode" aria-live="polite"></div>
-      <div class="button-row">
-        <button type="button" id="downloadBtn" class="secondary" hidden>Als PNG speichern</button>
-        <button type="button" id="shareBtn" class="secondary" hidden>Bild versenden</button>
-      </div>
-    </section>
-
-    <section id="scan" class="panel">
-      <p class="hint">Die Seite muss über HTTPS geöffnet sein. Beim ersten Start muss der Kamerazugriff erlaubt werden.</p>
-      <div id="reader"></div>
-      <div id="scanResult" aria-live="polite"></div>
-      <button type="button" id="restartBtn" class="secondary">Scanner neu starten</button>
-    </section>
-
-    <section id="history" class="panel">
-      <h2>Scan-Historie</h2>
-      <div id="historyList"></div>
-      <button type="button" id="clearBtn" class="danger">Alle Daten löschen</button>
-    </section>
-  </div>
+  <section id="history" class="panel">
+    <h2>Scan-Historie</h2>
+    <p class="hint">Die Einträge werden zentral in <strong>aboScans.json</strong> im freigegebenen Google-Drive-Ordner gespeichert.</p>
+    <div id="historyList"></div>
+    <button type="button" id="refreshBtn" class="secondary">Liste aktualisieren</button>
+    <button type="button" id="clearBtn" class="danger">Alle Daten löschen</button>
+  </section>
 
   <script>
     "use strict";
 
     /*
-     * LOKALER ZUGRIFFSSCHUTZ
-     * Benutzer und Passwörter hier anpassen.
-     * Achtung: In einer reinen HTML-Datei sind diese Angaben im Quelltext sichtbar.
+     * HIER DIE VOLLSTÄNDIGE APPS-SCRIPT-WEB-APP-URL EINTRAGEN.
+     * Die URL endet auf /exec und beginnt typischerweise mit:
+     * https://script.google.com/macros/s/...
+     * Die Google-Drive-Ordner-ID gehört NICHT hier hinein.
      */
-    const USERS = [
-      { username: "admin", password: "admin" },
-      { username: "benutzer2", password: "Passwort2!" },
-      { username: "benutzer3", password: "Passwort3!" },
-      { username: "benutzer4", password: "Passwort4!" },
-      { username: "benutzer5", password: "Passwort5!" }
-    ];
-
-    const LOGIN_SESSION_KEY = "aboScannerLoggedIn";
-    const LOGIN_USER_KEY = "aboScannerCurrentUser";
-    const MAX_LOGIN_ATTEMPTS = 5;
-    const LOGIN_BLOCK_TIME = 30000;
-    const STORAGE_KEY = "aboScans";
+    const API_URL = "https://script.google.com/macros/s/AKfycbyejNJ3_b6xSkHrsjiZPFSZGzTrp_wBvPOWdDrxg-sFTDyy8g39Qd_3REPuYHENHsPr/exec";
     const MAX_SCANS = 10;
+    const JSONP_TIMEOUT_MS = 20000;
 
-    let loginAttempts = 0;
-    let loginBlockedUntil = 0;
     let scanner = null;
     let scanLocked = false;
+    let cachedData = {};
+    let jsonpCounter = 0;
 
     const byId = (id) => document.getElementById(id);
 
-    function normalizeUsername(value) {
-      return String(value || "").trim().toLowerCase();
+    function setCloudStatus(message, isError = false) {
+      const element = byId("cloudStatus");
+      element.textContent = message;
+      element.style.background = isError ? "#f8d7da" : "#e7f1ff";
+      element.style.color = isError ? "#721c24" : "#084298";
     }
 
-    function findUser(username, password) {
-      const normalizedUsername = normalizeUsername(username);
-      return USERS.find((user) =>
-        normalizeUsername(user.username) === normalizedUsername &&
-        user.password === password
-      );
+    function apiConfigured() {
+      return /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/.test(API_URL);
     }
 
-    function showLoginMessage(message, type = "error") {
-      const container = byId("loginMessage");
-      container.replaceChildren();
-      if (!message) return;
-
-      const box = document.createElement("div");
-      box.className = type === "success" ? "login-success" : "login-error";
-      box.textContent = message;
-      container.appendChild(box);
-    }
-
-    function setAppAccess(isLoggedIn, username = "") {
-      byId("loginScreen").hidden = isLoggedIn;
-      byId("protectedApp").hidden = !isLoggedIn;
-      byId("currentUser").textContent = isLoggedIn ? username : "–";
-    }
-
-    function restoreLoginSession() {
-      const loggedIn = sessionStorage.getItem(LOGIN_SESSION_KEY) === "true";
-      const username = sessionStorage.getItem(LOGIN_USER_KEY) || "";
-
-      const userStillExists = USERS.some((user) =>
-        normalizeUsername(user.username) === normalizeUsername(username)
-      );
-
-      if (!loggedIn || !username || !userStillExists) {
-        sessionStorage.removeItem(LOGIN_SESSION_KEY);
-        sessionStorage.removeItem(LOGIN_USER_KEY);
-        setAppAccess(false);
-        return;
-      }
-
-      setAppAccess(true, username);
-    }
-
-    function updateLoginBlockMessage() {
-      const remainingMilliseconds = loginBlockedUntil - Date.now();
-
-      if (remainingMilliseconds <= 0) {
-        loginAttempts = 0;
-        loginBlockedUntil = 0;
-        byId("loginUsername").disabled = false;
-        byId("loginPassword").disabled = false;
-        byId("loginForm").querySelector('button[type="submit"]').disabled = false;
-        showLoginMessage("");
-        byId("loginUsername").focus();
-        return;
-      }
-
-      const remainingSeconds = Math.ceil(remainingMilliseconds / 1000);
-      showLoginMessage("Zu viele Fehlversuche. Neue Anmeldung in " + remainingSeconds + " Sekunden möglich.");
-      window.setTimeout(updateLoginBlockMessage, 500);
-    }
-
-    function blockLoginTemporarily() {
-      loginBlockedUntil = Date.now() + LOGIN_BLOCK_TIME;
-      byId("loginUsername").disabled = true;
-      byId("loginPassword").disabled = true;
-      byId("loginForm").querySelector('button[type="submit"]').disabled = true;
-      updateLoginBlockMessage();
-    }
-
-    async function handleLogin(event) {
-      event.preventDefault();
-
-      if (Date.now() < loginBlockedUntil) {
-        updateLoginBlockMessage();
-        return;
-      }
-
-      const username = byId("loginUsername").value.trim();
-      const password = byId("loginPassword").value;
-      const user = findUser(username, password);
-
-      if (!user) {
-        loginAttempts += 1;
-        byId("loginPassword").value = "";
-        const remainingAttempts = MAX_LOGIN_ATTEMPTS - loginAttempts;
-
-        if (remainingAttempts <= 0) {
-          blockLoginTemporarily();
+    function apiCall(action, parameters = {}) {
+      return new Promise((resolve, reject) => {
+        if (!apiConfigured()) {
+          reject(new Error("In index.html muss API_URL auf die vollständige Apps-Script-/exec-Adresse gesetzt werden."));
           return;
         }
 
-        showLoginMessage("Benutzername oder Passwort ist falsch. Verbleibende Versuche: " + remainingAttempts);
-        byId("loginPassword").focus();
-        return;
-      }
+        const callbackName = "__qrAboJsonp" + Date.now() + jsonpCounter++;
+        const url = new URL(API_URL);
+        url.searchParams.set("action", action);
+        url.searchParams.set("callback", callbackName);
+        Object.entries(parameters).forEach(([key, value]) => url.searchParams.set(key, String(value)));
 
-      loginAttempts = 0;
-      loginBlockedUntil = 0;
-      sessionStorage.setItem(LOGIN_SESSION_KEY, "true");
-      sessionStorage.setItem(LOGIN_USER_KEY, user.username);
-      showLoginMessage("");
-      byId("loginPassword").value = "";
-      setAppAccess(true, user.username);
-    }
+        const script = document.createElement("script");
+        let settled = false;
 
-    async function logout() {
-      await stopScanner();
-      sessionStorage.removeItem(LOGIN_SESSION_KEY);
-      sessionStorage.removeItem(LOGIN_USER_KEY);
-      scanLocked = false;
-      byId("loginForm").reset();
-      byId("scanResult").replaceChildren();
-      showLoginMessage("");
-      setAppAccess(false);
-      window.setTimeout(() => byId("loginUsername").focus(), 0);
+        const cleanup = () => {
+          delete window[callbackName];
+          script.remove();
+        };
+
+        const timer = window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          reject(new Error("Zeitüberschreitung beim Zugriff auf Apps Script."));
+        }, JSONP_TIMEOUT_MS);
+
+        window[callbackName] = (result) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          cleanup();
+
+          if (!result || result.ok !== true) {
+            reject(new Error(result && result.error ? result.error : "Unbekannter Serverfehler."));
+          } else {
+            resolve(result);
+          }
+        };
+
+        script.onerror = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          cleanup();
+          reject(new Error("Apps-Script-API konnte nicht geladen werden."));
+        };
+
+        script.src = url.toString();
+        document.head.appendChild(script);
+      });
     }
 
     function setResult(message, cssClass) {
@@ -277,23 +175,14 @@
       byId("scanResult").replaceChildren(box);
     }
 
-    function loadData() {
-      try {
-        const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-        return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-      } catch (error) {
-        console.error("Gespeicherte Daten sind ungültig:", error);
-        return {};
-      }
-    }
-
-    function saveData(data) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    async function loadData() {
+      const result = await apiCall("get");
+      cachedData = result.data || {};
+      setCloudStatus("Zentrale Drive-Liste verbunden.");
+      return cachedData;
     }
 
     async function showPanel(id) {
-      if (sessionStorage.getItem(LOGIN_SESSION_KEY) !== "true") return;
-
       document.querySelectorAll(".panel").forEach((panel) => panel.classList.remove("active"));
       byId(id).classList.add("active");
 
@@ -303,13 +192,17 @@
         await stopScanner();
       }
 
-      if (id === "history") renderHistory();
+      if (id === "history") await renderHistory();
     }
 
     function generateQR() {
       const text = byId("qrText").value.trim();
       if (!text) {
         alert("Bitte eine Abo-Kennung eingeben.");
+        return;
+      }
+      if (typeof QRCode === "undefined") {
+        alert("Die QR-Code-Bibliothek wurde nicht geladen.");
         return;
       }
 
@@ -320,7 +213,6 @@
         height: 250,
         correctLevel: QRCode.CorrectLevel.H
       });
-
       byId("downloadBtn").hidden = false;
       byId("shareBtn").hidden = false;
     }
@@ -372,39 +264,33 @@
       }
 
       const file = new File([blob], "abo-qr-code.png", { type: "image/png" });
-      const shareData = { title: "Abo QR-Code", text: "Abo QR-Code", files: [file] };
-
-      if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
-          await navigator.share(shareData);
+          await navigator.share({ title: "Abo QR-Code", text: "Abo QR-Code", files: [file] });
           return;
         } catch (error) {
           if (error.name === "AbortError") return;
-          console.error("Teilen fehlgeschlagen:", error);
         }
       }
 
       await downloadQR();
-      alert("Direktes Teilen wird von diesem Browser nicht unterstützt. Das Bild wurde stattdessen gespeichert.");
+      alert("Direktes Teilen wird nicht unterstützt. Das Bild wurde gespeichert.");
     }
 
     async function startScanner() {
-      if (sessionStorage.getItem(LOGIN_SESSION_KEY) !== "true") return;
       if (scanner || scanLocked) return;
       byId("scanResult").replaceChildren();
 
       if (!window.isSecureContext) {
-        setResult("Kamerazugriff benötigt HTTPS. Öffne die veröffentlichte GitHub-Pages-Adresse.", "expired");
+        setResult("Kamerazugriff benötigt HTTPS.", "expired");
         return;
       }
-
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setResult("Dieser Browser stellt keinen Kamerazugriff bereit.", "expired");
         return;
       }
-
       if (typeof Html5Qrcode === "undefined") {
-        setResult("Die Scanner-Bibliothek wurde nicht geladen. Prüfe die Internetverbindung und den Script-Link.", "expired");
+        setResult("Die Scanner-Bibliothek wurde nicht geladen.", "expired");
         return;
       }
 
@@ -414,10 +300,10 @@
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
           onScanSuccess,
-          function () {}
+          () => {}
         );
       } catch (error) {
-        console.error("Kamerafehler:", error);
+        console.error(error);
         scanner = null;
         const name = error && error.name ? error.name : "Fehler";
         const detail = error && error.message ? error.message : String(error);
@@ -433,13 +319,13 @@
       try {
         if (current.isScanning) await current.stop();
       } catch (error) {
-        console.warn("Scanner konnte nicht gestoppt werden:", error);
+        console.warn(error);
       }
 
       try {
         await current.clear();
       } catch (error) {
-        console.warn("Scanner konnte nicht geleert werden:", error);
+        console.warn(error);
       }
     }
 
@@ -457,38 +343,54 @@
 
       const code = String(decodedText || "").trim();
       if (!code || code.length > 500) {
+        scanLocked = false;
         setResult("Ungültiger QR-Code.", "expired");
         return;
       }
 
-      const data = loadData();
-      const previous = Number.isInteger(data[code]) ? data[code] : 0;
+      setResult("Scan wird zentral gespeichert ...", "info");
 
-      if (previous >= MAX_SCANS) {
-        setResult("🚨 ABO ABGELAUFEN\n\n" + code + "\nNutzung: " + previous + " / " + MAX_SCANS, "expired");
-        renderHistory();
+      try {
+        const result = await apiCall("record", { code, maxScans: MAX_SCANS });
+        cachedData = result.data || {};
+        const count = result.count;
+
+        if (result.alreadyExpired) {
+          setResult("ABO ABGELAUFEN\n\n" + code + "\nNutzung: " + count + " / " + MAX_SCANS, "expired");
+        } else if (result.expired) {
+          setResult("ABO JETZT ABGELAUFEN\n\n" + code + "\nDas war Scan " + count + " / " + MAX_SCANS, "expired");
+        } else {
+          setResult("Scan erfolgreich\n\n" + code + "\nNutzung: " + count + " / " + MAX_SCANS, "valid");
+        }
+
+        setCloudStatus("Scan zentral gespeichert.");
+      } catch (error) {
+        scanLocked = false;
+        setCloudStatus("Zentrale Speicherung nicht erreichbar.", true);
+        setResult("Speichern fehlgeschlagen: " + error.message, "expired");
+      }
+    }
+
+    async function renderHistory() {
+      const history = byId("historyList");
+      history.replaceChildren();
+
+      const loading = document.createElement("p");
+      loading.textContent = "Zentrale Liste wird geladen ...";
+      history.appendChild(loading);
+
+      try {
+        await loadData();
+      } catch (error) {
+        setCloudStatus("Zentrale Speicherung nicht erreichbar.", true);
+        loading.textContent = "Liste konnte nicht geladen werden: " + error.message;
         return;
       }
 
-      const count = previous + 1;
-      data[code] = count;
-      saveData(data);
-
-      if (count >= MAX_SCANS) {
-        setResult("🚨 ABO JETZT ABGELAUFEN\n\n" + code + "\nDas war Scan " + count + " / " + MAX_SCANS, "expired");
-      } else {
-        setResult("✅ Scan erfolgreich\n\n" + code + "\nNutzung: " + count + " / " + MAX_SCANS, "valid");
-      }
-      renderHistory();
-    }
-
-    function renderHistory() {
-      const history = byId("historyList");
       history.replaceChildren();
-      const data = loadData();
-      const keys = Object.keys(data).sort((a, b) => a.localeCompare(b));
+      const keys = Object.keys(cachedData).sort((a, b) => a.localeCompare(b));
 
-      if (keys.length === 0) {
+      if (!keys.length) {
         const empty = document.createElement("p");
         empty.textContent = "Keine Einträge vorhanden.";
         history.appendChild(empty);
@@ -496,52 +398,56 @@
       }
 
       keys.forEach((key) => {
-        const count = data[key];
+        const count = cachedData[key];
         const item = document.createElement("div");
         item.className = "history-item " + (count >= MAX_SCANS ? "expired-item" : "valid-item");
 
         const text = document.createElement("div");
         text.className = "history-text";
-        text.textContent =
-          (count >= MAX_SCANS ? "❌ " : "✅ ") +
-          key + " | " + count + " / " + MAX_SCANS +
-          (count >= MAX_SCANS ? " | ABO ABGELAUFEN" : "");
+        text.textContent = (count >= MAX_SCANS ? "ABGELAUFEN: " : "AKTIV: ") + key + " | " + count + " / " + MAX_SCANS;
 
-        const deleteBtn = document.createElement("button");
-        deleteBtn.type = "button";
-        deleteBtn.textContent = "🗑 Löschen";
-        deleteBtn.className = "danger";
-        deleteBtn.style.width = "auto";
-        deleteBtn.style.padding = "6px 12px";
-        deleteBtn.addEventListener("click", () => deleteEntry(key));
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "danger";
+        button.textContent = "Löschen";
+        button.addEventListener("click", () => deleteEntry(key, button));
 
-        item.appendChild(text);
-        item.appendChild(deleteBtn);
+        item.append(text, button);
         history.appendChild(item);
       });
     }
 
-    function deleteEntry(key) {
-      if (!confirm(`Eintrag "${key}" löschen?`)) return;
-      const data = loadData();
-      delete data[key];
-      saveData(data);
-      byId("scanResult").replaceChildren();
-      renderHistory();
+    async function deleteEntry(key, button) {
+      if (!confirm('Eintrag "' + key + '" zentral löschen?')) return;
+      button.disabled = true;
+
+      try {
+        const result = await apiCall("delete", { code: key });
+        cachedData = result.data || {};
+        await renderHistory();
+      } catch (error) {
+        button.disabled = false;
+        alert("Löschen fehlgeschlagen: " + error.message);
+      }
     }
 
     async function clearAll() {
-      if (!confirm("Alle gespeicherten Scan-Daten löschen?")) return;
-      localStorage.removeItem(STORAGE_KEY);
-      byId("scanResult").replaceChildren();
-      renderHistory();
-      alert("Daten wurden gelöscht.");
+      if (!confirm("Alle zentral gespeicherten Scan-Daten löschen?")) return;
+      byId("clearBtn").disabled = true;
+
+      try {
+        await apiCall("clear");
+        cachedData = {};
+        await renderHistory();
+        alert("Alle zentralen Daten wurden gelöscht.");
+      } catch (error) {
+        alert("Löschen fehlgeschlagen: " + error.message);
+      } finally {
+        byId("clearBtn").disabled = false;
+      }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      byId("loginForm").addEventListener("submit", handleLogin);
-      byId("logoutBtn").addEventListener("click", logout);
-
       document.querySelectorAll("[data-panel]").forEach((button) => {
         button.addEventListener("click", () => showPanel(button.dataset.panel));
       });
@@ -550,20 +456,20 @@
       byId("downloadBtn").addEventListener("click", downloadQR);
       byId("shareBtn").addEventListener("click", shareQR);
       byId("restartBtn").addEventListener("click", restartScanner);
+      byId("refreshBtn").addEventListener("click", renderHistory);
       byId("clearBtn").addEventListener("click", clearAll);
       byId("qrText").addEventListener("keydown", (event) => {
         if (event.key === "Enter") generateQR();
       });
 
-      renderHistory();
-      restoreLoginSession();
-
-      if (sessionStorage.getItem(LOGIN_SESSION_KEY) !== "true") {
-        byId("loginUsername").focus();
-      }
+      loadData().catch((error) => {
+        setCloudStatus("Zentrale Speicherung nicht erreichbar: " + error.message, true);
+      });
     });
 
-    window.addEventListener("pagehide", () => { stopScanner(); });
+    window.addEventListener("pagehide", () => {
+      stopScanner();
+    });
   </script>
 </body>
 </html>
