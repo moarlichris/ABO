@@ -48,7 +48,7 @@
 <script>
 "use strict";
 const API_URL="https://script.google.com/macros/s/AKfycbyejNJ3_b6xSkHrsjiZPFSZGzTrp_wBvPOWdDrxg-sFTDyy8g39Qd_3REPuYHENHsPr/exec";
-const MAX_SCANS=10; const JSONP_TIMEOUT_MS=20000; let jsonpCounter=0; let scanner=null,scanLocked=false,cachedData={}; const byId=id=>document.getElementById(id);
+const MAX_SCANS=10; const JSONP_TIMEOUT_MS=20000; let jsonpCounter=0; let scanner=null,scannerStarting=false,scannerStopping=null,scanLocked=false,cachedData={}; const byId=id=>document.getElementById(id);
 function setCloudStatus(message,isError=false){const e=byId("cloudStatus");e.textContent=message;e.style.background=isError?"#f8d7da":"#e7f1ff";e.style.color=isError?"#721c24":"#084298"}
 function apiCall(action,parameters={}){return new Promise((resolve,reject)=>{const callbackName="__qrAboJsonp"+Date.now()+(jsonpCounter++);const url=new URL(API_URL);url.searchParams.set("action",action);url.searchParams.set("callback",callbackName);Object.entries(parameters).forEach(([key,value])=>url.searchParams.set(key,String(value)));const script=document.createElement("script");let settled=false;const cleanup=()=>{delete window[callbackName];script.remove()};const timer=setTimeout(()=>{if(settled)return;settled=true;cleanup();reject(new Error("Zeitüberschreitung beim Zugriff auf Apps Script."))},JSONP_TIMEOUT_MS);window[callbackName]=result=>{if(settled)return;settled=true;clearTimeout(timer);cleanup();if(!result||result.ok!==true)reject(new Error(result&&result.error?result.error:"Unbekannter Serverfehler."));else resolve(result)};script.onerror=()=>{if(settled)return;settled=true;clearTimeout(timer);cleanup();reject(new Error("Apps-Script-API konnte nicht geladen werden."))};script.src=url.toString();document.head.appendChild(script)})}
 function setResult(message,cssClass){const box=document.createElement("div");box.className="result "+cssClass;box.textContent=message;byId("scanResult").replaceChildren(box)}
@@ -59,9 +59,88 @@ function qrCanvas(){const c=byId("qrcode").querySelector("canvas");if(c)return c
 function canvasToBlob(canvas){return new Promise(resolve=>canvas.toBlob(resolve,"image/png"))}
 async function downloadQR(){const canvas=qrCanvas();if(!canvas){alert("Bitte zuerst einen QR-Code erstellen.");return}const link=document.createElement("a");link.href=canvas.toDataURL("image/png");link.download="abo-qr-code.png";document.body.appendChild(link);link.click();link.remove()}
 async function shareQR(){const canvas=qrCanvas();if(!canvas){alert("Bitte zuerst einen QR-Code erstellen.");return}const blob=await canvasToBlob(canvas);if(!blob){alert("Das Bild konnte nicht erzeugt werden.");return}const file=new File([blob],"abo-qr-code.png",{type:"image/png"});if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({title:"Abo QR-Code",text:"Abo QR-Code",files:[file]});return}catch(error){if(error.name==="AbortError")return}}await downloadQR();alert("Direktes Teilen wird nicht unterstützt. Das Bild wurde gespeichert.")}
-async function startScanner(){if(scanner)return;scanLocked=false;byId("scanResult").replaceChildren();if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){setResult("Kamerazugriff benötigt HTTPS und einen kompatiblen Browser.","expired");return}if(typeof Html5Qrcode==="undefined"){setResult("Die Scanner-Bibliothek wurde nicht geladen.","expired");return}try{const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}}});stream.getTracks().forEach(track=>track.stop());const cameras=await Html5Qrcode.getCameras();if(!cameras||!cameras.length)throw new Error("Keine Kamera gefunden.");const preferred=cameras.find(c=>/back|rear|environment|rück/i.test(c.label))||cameras[cameras.length-1];scanner=new Html5Qrcode("reader");await scanner.start(preferred.id,{fps:10,qrbox:{width:250,height:250},aspectRatio:1},onScanSuccess,()=>{})}catch(error){console.error(error);scanner=null;const name=error&&error.name?error.name:"Fehler";const detail=error&&error.message?error.message:String(error);setResult("Kamera konnte nicht gestartet werden. "+name+": "+detail+"\nBitte Kameraberechtigung und HTTPS prüfen.","expired")}}
-async function stopScanner(){const current=scanner;scanner=null;if(!current)return;try{if(current.isScanning)await current.stop()}catch(error){console.warn(error)}try{await current.clear()}catch(error){console.warn(error)}}
-async function restartScanner(){await stopScanner();byId("scanResult").replaceChildren();await startScanner()}
+function releaseVideoElements(){
+  document.querySelectorAll("#reader video").forEach(video=>{
+    try{
+      if(video.srcObject){
+        video.srcObject.getTracks().forEach(track=>track.stop());
+        video.srcObject=null;
+      }
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }catch(error){console.warn("Videostream konnte nicht vollständig gelöst werden:",error)}
+  });
+}
+async function waitForCameraRelease(){
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  await new Promise(resolve=>setTimeout(resolve,250));
+}
+async function startScanner(){
+  if(scanner||scannerStarting)return;
+  if(scannerStopping)await scannerStopping;
+  scannerStarting=true;
+  scanLocked=false;
+  byId("scanResult").replaceChildren();
+  try{
+    if(!window.isSecureContext||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+      throw new Error("Kamerazugriff benötigt HTTPS und einen kompatiblen Browser.");
+    }
+    if(typeof Html5Qrcode==="undefined"){
+      throw new Error("Die Scanner-Bibliothek wurde nicht geladen.");
+    }
+    releaseVideoElements();
+    byId("reader").replaceChildren();
+    await waitForCameraRelease();
+    const instance=new Html5Qrcode("reader");
+    scanner=instance;
+    await instance.start(
+      {facingMode:{ideal:"environment"}},
+      {fps:10,qrbox:{width:250,height:250},aspectRatio:1},
+      onScanSuccess,
+      ()=>{}
+    );
+  }catch(error){
+    console.error(error);
+    const failedScanner=scanner;
+    scanner=null;
+    if(failedScanner){
+      try{if(failedScanner.isScanning)await failedScanner.stop()}catch(ignore){}
+      try{await failedScanner.clear()}catch(ignore){}
+    }
+    releaseVideoElements();
+    byId("reader").replaceChildren();
+    const name=error&&error.name?error.name:"Fehler";
+    const detail=error&&error.message?error.message:String(error);
+    setResult("Kamera konnte nicht gestartet werden. "+name+": "+detail+"\nBitte Kameraberechtigung und HTTPS prüfen.","expired");
+  }finally{
+    scannerStarting=false;
+  }
+}
+async function stopScanner(){
+  if(scannerStopping)return scannerStopping;
+  const current=scanner;
+  scanner=null;
+  scannerStarting=false;
+  scannerStopping=(async()=>{
+    try{
+      if(current&&current.isScanning)await current.stop();
+    }catch(error){console.warn("Scanner konnte nicht gestoppt werden:",error)}
+    try{
+      if(current)await current.clear();
+    }catch(error){console.warn("Scanner konnte nicht geleert werden:",error)}
+    releaseVideoElements();
+    byId("reader").replaceChildren();
+    await waitForCameraRelease();
+  })();
+  try{await scannerStopping}finally{scannerStopping=null}
+}
+async function restartScanner(){
+  scanLocked=false;
+  byId("scanResult").replaceChildren();
+  await stopScanner();
+  await startScanner();
+}
 async function onScanSuccess(decodedText){if(scanLocked)return;scanLocked=true;await stopScanner();const code=String(decodedText||"").trim();if(!code||code.length>500){setResult("Ungültiger QR-Code.","expired");return}setResult("Scan wird zentral gespeichert ...","info");try{const result=await apiCall("record",{code:code,maxScans:MAX_SCANS});cachedData=result.data||{};const count=result.count;if(result.alreadyExpired)setResult("ABO ABGELAUFEN\n\n"+code+"\nNutzung: "+count+" / "+MAX_SCANS,"expired");else if(result.expired)setResult("ABO JETZT ABGELAUFEN\n\n"+code+"\nDas war Scan "+count+" / "+MAX_SCANS,"expired");else setResult("Scan erfolgreich\n\n"+code+"\nNutzung: "+count+" / "+MAX_SCANS,"valid");setCloudStatus("Scan zentral gespeichert.")}catch(error){scanLocked=false;setCloudStatus("Zentrale Speicherung nicht erreichbar.",true);setResult("Speichern fehlgeschlagen: "+error.message,"expired")}}
 async function renderHistory(){const history=byId("historyList");history.replaceChildren();const loading=document.createElement("p");loading.textContent="Zentrale Liste wird geladen ...";history.appendChild(loading);try{await loadData()}catch(error){setCloudStatus("Zentrale Speicherung nicht erreichbar.",true);loading.textContent="Liste konnte nicht geladen werden: "+error.message;return}history.replaceChildren();const keys=Object.keys(cachedData).sort((a,b)=>a.localeCompare(b));if(!keys.length){const empty=document.createElement("p");empty.textContent="Keine Einträge vorhanden.";history.appendChild(empty);return}keys.forEach(key=>{const count=cachedData[key];const item=document.createElement("div");item.className="history-item "+(count>=MAX_SCANS?"expired-item":"valid-item");const text=document.createElement("div");text.className="history-text";text.textContent=(count>=MAX_SCANS?"ABGELAUFEN: ":"AKTIV: ")+key+" | "+count+" / "+MAX_SCANS;const button=document.createElement("button");button.type="button";button.className="danger";button.textContent="Löschen";button.addEventListener("click",()=>deleteEntry(key,button));item.append(text,button);history.appendChild(item)})}
 async function deleteEntry(key,button){if(!confirm('Eintrag "'+key+'" zentral löschen?'))return;button.disabled=true;try{const result=await apiCall("delete",{code:key});cachedData=result&&result.data?result.data:{};byId("scanResult").replaceChildren();await renderHistory()}catch(error){button.disabled=false;alert("Löschen fehlgeschlagen: "+error.message)}}
